@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <meta charset="utf-8"/>
+  <title>Maze Game</title>
+  <!-- <link rel="stylesheet" type="text/css" href="mystyle.css"> -->
+  <script type="application/javascript">
+    let box = 30; //unit size
+    let grid = []; //array data of each cell
+    let gridTracker = []; //unvisited represented with {}
+    let numOfUnvisitedGrid = 399;
+    let d;
+    let player = {
+            x: 2,
+            y: 10,
+        };
+    let hp = 5;
+    let gameStartTime;
+    let timeLeft;
+    let img2 = new Image();    
+    let img3 = new Image();
+    let numOfPatrols;
+    let patrol = [];
+
+    function generatepatrol(arraylength) {
+        numOfPatrols = Math.round(arraylength**2/40);
+        for (i = 0; i < numOfPatrols; i++) {
+            patrolX = Math.floor(Math.random()*arraylength);
+            patrolY = Math.floor(Math.random()*arraylength);
+            patrol[i] = {x: patrolX * 30 + 10, y: patrolY * 30 + 10, pathTaken: [], chasestatus: false, canStartChase: true, playerMovementInChase: []};
+        }
+    } // first 4 X 4 grid should be clear
+    
+    document.addEventListener("keydown", direction);
+    document.addEventListener("keyup", function() {d = 5});
+
+    function draw() {
+        gameStartTime = Date.now();
+        const cvs = document.getElementById("canvas");
+        const ctx = cvs.getContext("2d");
+        for (let i = 0; i < 20; i++) {
+            grid[i] = [];
+            gridTracker[i] = [];
+            for (let j = 0; j < 20; j++) {
+                ctx.fillRect(i*box, j*box, box, box);
+                grid[i][j] = {
+                    x: i,
+                    y: j,
+                    visited: false,
+                    linkCell: []
+                };
+                gridTracker[i][j] = 0;
+            }
+        };
+        ctx.clearRect(0, 2, 28, 26);
+        ctx.clearRect(572, 572, 28, 26);
+        let currentgrid = grid[0][0];
+
+        grid[19][19].linkCell.push(0);
+        generatepatrol(grid.length);
+        console.log(numOfPatrols);
+        while (true) {
+            currentgrid.visited = true;
+            gridTracker[currentgrid.x][currentgrid.y] = {
+                x: currentgrid.x,
+                y: currentgrid.y
+            };
+            let availDir = availgrid(currentgrid);
+            let n = availDir.length;
+            let k = Math.floor(Math.random()*n)
+            let chosenDir = availDir[k];
+            let newGrid = {};
+    
+            if (numOfUnvisitedGrid == 0) {
+                break;
+            } else if (n == 0 && numOfUnvisitedGrid > 0) {
+                let newArr = filterArr(gridTracker);
+                let num = Math.floor(Math.random()*newArr.length);
+                currentgrid = grid[newArr[num].x][newArr[num].y];
+            } else if (n > 0) {
+                switch (chosenDir) { // wall thickness 2px on perimeter 4px within maze
+                    case 0:
+                        ctx.save();
+                        newGrid = grid[currentgrid.x + 1][currentgrid.y]; // right
+                        grid[currentgrid.x][currentgrid.y].linkCell.push(0);
+                        grid[currentgrid.x + 1][currentgrid.y].linkCell.push(1);
+                        ctx.translate((currentgrid.x + 1)*box, (currentgrid.y + 0.5)*box);
+                        ctx.clearRect(-28, -13, 56, 26);
+                        ctx.restore();
+                        break;
+                    case 1:
+                        ctx.save();
+                        newGrid = grid[currentgrid.x - 1][currentgrid.y]; // left
+                        grid[currentgrid.x][currentgrid.y].linkCell.push(1);
+                        grid[currentgrid.x - 1][currentgrid.y].linkCell.push(0);
+                        ctx.translate((currentgrid.x)*box, (currentgrid.y + 0.5)*box);
+                        ctx.clearRect(-28, -13, 56, 26);
+                        ctx.restore();
+                        break;
+                    case 2:
+                        ctx.save();
+                        newGrid = grid[currentgrid.x][currentgrid.y - 1]; // up
+                        grid[currentgrid.x][currentgrid.y].linkCell.push(2);
+                        grid[currentgrid.x][currentgrid.y - 1].linkCell.push(3);
+                        ctx.translate((currentgrid.x + 0.5)*box, (currentgrid.y)*box);
+                        ctx.clearRect(-13, -28, 26, 56);
+                        ctx.restore();
+                        break;
+                    case 3:
+                        ctx.save();
+                        newGrid = grid[currentgrid.x][currentgrid.y + 1]; // down
+                        grid[currentgrid.x][currentgrid.y].linkCell.push(3);
+                        grid[currentgrid.x][currentgrid.y + 1].linkCell.push(2);
+                        ctx.translate((currentgrid.x + 0.5)*box, (currentgrid.y + 1)*box);
+                        ctx.clearRect(-13, -28, 26, 56);
+                        ctx.restore();
+                        break;
+                }
+                currentgrid = newGrid;
+                numOfUnvisitedGrid -= 1;
+            } 
+        }
+        return gameStartTime;
+    }
+
+    function filterArr(arr) {
+        let newArr = [];
+        for (n = 0; n < arr.length; n++) {
+            for (c = 0; c < arr[0].length; c++) {
+                if (arr[n][c] != 0 && ((arr[n+1] != undefined && arr[n+1][c] == 0) || (arr[n-1] != undefined && arr[n-1][c] == 0) || arr[n][c+1] == 0 || arr[n][c-1] == 0)) {
+                newArr.push(arr[n][c])
+                }
+            }
+        }
+        return newArr
+    } // available grids to start new path
+
+    function availgrid(currentgrid) {
+        let availDir = []
+        for (c = 0; c < 4; c++) {
+            if (c == 0) {
+                if (currentgrid.x != 19 && grid[currentgrid.x + 1][currentgrid.y].visited == false) {
+                    availDir.push(0);
+                }
+            } else if (c == 1) {
+                if (currentgrid.x != 0 && grid[currentgrid.x - 1][currentgrid.y].visited == false) {
+                    availDir.push(1);
+                }
+            } else if (c == 2) {
+                if (currentgrid.y != 0 && grid[currentgrid.x][currentgrid.y - 1].visited == false) {
+                    availDir.push(2);
+                }
+            } else if (c == 3) {
+                if (currentgrid.y != 19 && grid[currentgrid.x][currentgrid.y + 1].visited == false) {
+                    availDir.push(3);
+                }
+            }
+        }
+        return availDir;
+    } // directions to unvisited grid from current grid
+    
+
+
+    function finalDraw() {
+        let elapsed = Date.now() - gameStartTime;
+        console.log(elapsed);
+        const destinctx = document.getElementById("canvas2").getContext("2d");
+        const scoreBoard = document.getElementById("score");
+        const img = document.getElementById("pacman");
+        const img4 = document.getElementById("ghost");
+        destinctx.clearRect(0,0,620,600);
+        const cvs = document.getElementById("canvas");
+        destinctx.drawImage(cvs, 0, 0);
+
+        img2.src = "https://media.tenor.com/images/f866585f83711e1416ed3eaa4beff3d0/tenor.gif"; //win image
+        img3.src = "./public/gameover.jpg" //lost image
+        
+        destinctx.drawImage(img, player.x, player.y, 10, 10);
+        for (i = 0; i < numOfPatrols; i++) {
+            destinctx.drawImage(img4, patrol[i].x, patrol[i].y, 10, 10);
+        }
+
+        // checkAvailDirPatrol(patrol, player);
+        // patrol[5].x += 1;
+
+        let list = checkMovementLimit(player);
+
+        if (elapsed > 120000 || capturedByPatrol(patrol, player)) {
+            img3.onload = function () {
+                destinctx.drawImage(img3, 0, 0, 600, 600);
+            }
+            clearInterval(Interval);
+        } else if (player.x >= 600) {
+            destinctx.clearRect(0,0,620,600);
+            img2.onload = function () {
+                destinctx.drawImage(img2, 0, 0, 600, 600);
+            }
+            scoreBoard.innerHTML = "Score:" + (100 - Math.floor(elapsed/120000*100));
+            clearInterval(IntervalTimer);
+            document.getElementById("timer").innerHTML = "";
+            clearInterval(Interval);
+            // window.cancelAnimationFrame(myReq);
+        } else if (d == 0 && player.x != list[0] - 10) {
+            player.x += 2;
+            img.src = "./public/pacman.png";
+        } else if (d == 1 && player.x != list[1]) {
+            player.x -= 2;
+            img.src = "./public/pacmanleft.jpg";
+        } else if (d == 2 && player.y != list[2]) {
+            player.y -= 2;
+            img.src = "./public/pacmanup.png";
+        } else if (d == 3 && player.y != list[3] - 10) {
+            player.y += 2;
+            img.src = "./public/pacmandown.png";
+        }
+        // window.requestAnimationFrame(finalDraw);
+    }
+    // window.requestAnimationFrame(finalDraw);
+
+    let Interval = setInterval(finalDraw, 10);
+
+    function direction(event) {
+        if (event.keyCode == 39) {
+            d = 0;
+        } else if (event.keyCode == 37) {
+            d = 1;
+        } else if (event.keyCode == 38) {
+            d = 2;
+        } else if (event.keyCode == 40) {
+            d = 3;
+        }
+    }
+
+    function checkCentre(x, y) {
+        if ((x - 15) % 30 == 0 && (y - 15) % 30 == 0) {
+            return true
+        } else {return false}
+    }
+
+    function withinSight(patroli, player) {
+        let distanceSquare = (patroli.x - player.x)**2 + (patroli.y - player.y)**2;
+        let gridDiff = [];
+        if (distanceSquare <= 900) {
+                let x = Math.floor(player.x/30); 
+                let y = Math.floor(player.y/30);
+                let x2 = Math.floor(patroli.x/30);
+                let y2 = Math.floor(patroli.y/30);
+            if (x == x2) {
+                switch (y < y2) { //player above patrol
+                    case true:
+                    let dy = y2 - y;
+                    for (i = 0; i < dy; i++) {
+                        if (grid[x][y + i].linkCell.indexOf(3) != -1) {
+                            gridDiff.push({x: x, y: y + 1 + i})
+                            if (i == dy - 1) {
+                                gridDiff.push(2);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                    break;
+                    case false: //patrol above player
+                    for (i = 0; i < -dy; i++) { 
+                        if (grid[x][y2 + i].linkCell.indexOf(3) != -1) {
+                            gridDiff.push({x: x, y: y2 + 1 + i})
+                            if (i == -dx - 1) {
+                                gridDiff.push(3);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                    break;
+                }
+            } else if (y == y2) {
+                switch (x < x2) { //player left of patrol
+                    case true:
+                    let dx = x2 - x;
+                    for (i = 0; i < dx; i++) {
+                        if (grid[x + i][y].linkCell.indexOf(0) != -1) {
+                            gridDiff.push({x: x + 1 + i, y: y})
+                            if (i == dx - 1) {
+                                gridDiff.push(1);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                    break;
+                    case false: //patrol left of player
+                    for (i = 0; i < -dx; i++) { 
+                        if (grid[x2 + i][y].linkCell.indexOf(0) != -1) {
+                            gridDiff.push({x: x2 + 1 + i, y: y})
+                            if (i == -dx - 1) {
+                                gridDiff.push(0);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                    break;
+                }
+            } else {return false}
+        } else {return false}
+    }
+
+    function preventBackwardMovement(patroli) {
+        if (patroli.pathTaken.length > 0) {
+            switch(patroli.pathTaken[patroli.pathTaken.length - 1]) {
+                case 0:
+                return 1
+                break;
+                case 1:
+                return 0
+                break;
+                case 2:
+                return 3;
+                break;
+                case 3:
+                return 2;
+                break;
+            }
+        } else {
+            return undefined;
+        }
+    }
+
+    function capturedByPatrol(patrolArr, user) {
+        let x;
+        let y;
+        let xp = Math.floor(user.x/30); 
+        let yp = Math.floor(user.y/30);
+        for (i = 0; i < patrolArr.length; i++) {
+            x = Math.floor(patrolArr[i].x/30);
+            y = Math.floor(patrolArr[i].y/30);
+            if (x == xp && y == yp) {
+                return true; //captured by patrol
+            }
+        }
+    }
+
+    function setDelay(patrolArr, i, MovementInterval) {
+        setTimeout(() => {
+            patrolArr[i].chasestatus = false;
+            clearInterval(MovementInterval);
+            patrolArr[i].playerMovementInChase = [];
+        }, 10000); //patrol will chase player for 10s upon discovery
+    }
+
+    function setDelay2(patrolArr, i) {
+        setTimeout(() => {patrolArr[i].canStartChase = true}, 15000); //5s cooldown before patrol can start another chase
+    }
+
+    function setDelay3(patrolArr, i) {
+        let MovementInterval = setInterval(() => {
+            if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) {
+                if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y != Math.floor(player.y/30))) {
+                    patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); 
+                } else if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x == Math.floor(player.x/30) && patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y == Math.floor(player.y/30))) {
+                    patrolArr[i].playerMovementInChase.pop(); // if the player move backwards redundant movement remove last element from playermovementarray
+                }
+            } else if (patrolArr[i].playerMovementInChase.length < 2 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) { //1 grid in array only
+                patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); // first two grid locations always recorded in array
+            }
+        }, 10);
+        return MovementInterval;
+    }
+
+    function checkAvailDirPatrol(patrolArr, user) {
+        let cellConnected;
+        let x;
+        let y;
+        let xp;
+        let yp;
+        let isCentre;
+        let chosenDir;
+        let backDir;
+        let inRange;
+        let startDir;
+        let MovementInterval;
+        xp = Math.floor(user.x/30); 
+        yp = Math.floor(user.y/30);
+        
+        for (i = 0; i < patrolArr.length; i++) {
+            x = Math.floor(patrolArr[i].x/30);
+            y = Math.floor(patrolArr[i].y/30);
+            cellConnected = grid[x][y].linkCell;
+            isCentre = checkCentre(patrolArr[i].x, patrolArr[i].y);
+            inRange = withinSight(patrolArr[i], user);
+            
+            if (inRange != false && patrolArr[i].chasestatus == false && patrol[i].canStartChase == true) {
+                patrolArr[i].chasestatus = true;
+                patrolArr[i].canStartChase = false;
+                for (j = 0; j < inRange.length - 2; j++) {
+                    patrolArr[i].playerMovementInChase.push(inRange[j]);
+                }
+                MovementInterval = setDelay3(patrolArr, i);
+                setDelay(patrolArr, i, MovementInterval);
+                setDelay2(patrolArr, i);
+                startDir = inRange[inRange.length - 1];
+                patrolArr[i].pathTaken.push(startDir);
+                patrolArr[i].pathTaken.splice(0, 1);
+                switch(startDir) {
+                    case 0:
+                    patrolArr[i].x += 2;
+                    break;
+                    case 1:
+                    patrolArr[i].x -= 2;
+                    break;
+                    case 2:
+                    patrolArr[i].y -= 2;
+                    break;
+                    case 3:
+                    patrolArr[i].y += 2;
+                    break;
+                }
+                
+            } else if (patrolArr[i].chasestatus == true) {
+                if (isCentre) {
+                    let nextGridTo = patrolArr[i].playerMovementInChase[0]; //decide next grid to move to
+                    if (nextGridTo.x - x == 1) {
+                        chosenDir = 0;
+                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
+                        patrolArr[i].pathTaken.push(0);
+                        patrolArr[i].pathTaken.splice(0, 1);
+                    } else if (x - nextGridTo.x == 1) {
+                        chosenDir = 1;
+                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
+                        patrolArr[i].pathTaken.push(1);
+                        patrolArr[i].pathTaken.splice(0, 1);
+                    } else if (nextGridTo.y - y == -1) {
+                        chosenDir = 2;
+                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
+                        patrolArr[i].pathTaken.push(2);
+                        patrolArr[i].pathTaken.splice(0, 1);
+                    } else if (nextGridTo.y - y == 1) {
+                        chosenDir = 3;
+                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
+                        patrolArr[i].pathTaken.push(3);
+                        patrolArr[i].pathTaken.splice(0, 1);
+                    }
+                    switch(chosenDir) {
+                        case 0:
+                        patrolArr[i].x += 2;
+                        break;
+                        case 1:
+                        patrolArr[i].x -= 2;
+                        break;
+                        case 2:
+                        patrolArr[i].y -= 2;
+                        break;
+                        case 3:
+                        patrolArr[i].y += 2;
+                        break;
+                    }
+                } else {
+                    switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
+                        case 0:
+                        patrolArr[i].x += 2;
+                        break;
+                        case 1:
+                        patrolArr[i].x -= 2;
+                        break;
+                        case 2:
+                        patrolArr[i].y -= 2;
+                        break;
+                        case 3:
+                        patrolArr[i].y += 2;
+                        break;
+                }
+                }
+                //continue chase
+            } else if (isCentre) { // reached centre of intended grid choose new grid to move to
+                backDir = preventBackwardMovement(patrolArr[i]);
+                if (x == 19 && y == 19) {
+                    cellConnected.splice(0,1); // grid[19][19] case
+                }
+                if (backDir != undefined) {
+                    cellConnected.splice(cellConnected.indexOf(backDir), 1);
+                }
+                chosenDir = cellConnected[Math.floor(Math.random()*cellConnected.length)];
+                patrolArr[i].pathTaken.push(chosenDir);
+                if (patrolArr[i].pathTaken.length > 1) {
+                    patrolArr[i].pathTaken.splice(0, 1);
+                }
+                switch(chosenDir) {
+                    case 0:
+                    patrolArr[i].x += 1;
+                    break;
+                    case 1:
+                    patrolArr[i].x -= 1;
+                    break;
+                    case 2:
+                    patrolArr[i].y -= 1;
+                    break;
+                    case 3:
+                    patrolArr[i].y += 1;
+                    break;
+                }
+            } else { // continue moving in the determined direction
+                switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
+                    case 0:
+                    patrolArr[i].x += 1;
+                    break;
+                    case 1:
+                    patrolArr[i].x -= 1;
+                    break;
+                    case 2:
+                    patrolArr[i].y -= 1;
+                    break;
+                    case 3:
+                    patrolArr[i].y += 1;
+                    break;
+                }
+            }
+        } 
+    }
+
+    function checkMovementLimit(player) {
+        let limit = [];
+        let x = Math.floor(player.x/30);
+        let y = Math.floor(player.y/30);
+        let cellConnected;
+
+        if (x < 20) {
+            cellConnected = grid[x][y].linkCell;
+        };
+        for (i = 0; i < 4; i++) {
+            if (x == 20) {
+                limit = [];
+            } else if (cellConnected.indexOf(i) == -1 && i == 0) {
+                let rightLimit = x * 30 + 28; 
+                limit.push(rightLimit);
+            } else if (cellConnected.indexOf(i) == -1 && i == 1) {
+                let leftLimit = x * 30 + 2;
+                limit.push(leftLimit); 
+            } else if (cellConnected.indexOf(i) == -1 && i == 2) {
+                let upperLimit = y * 30 + 2;
+                limit.push(upperLimit); 
+            } else if (cellConnected.indexOf(i) == -1 && i == 3) {
+                let bottomLimit = y * 30 + 28;
+                limit.push(bottomLimit); 
+            } else {
+                limit.push({});
+            }
+        }
+        return limit
+    }
+
+    function timeElapsed() {
+        timeLeft = Math.ceil((120000 - (Date.now() - gameStartTime))/1000);
+        document.getElementById("timer").innerText = "Time left:" + timeLeft;
+        if (timeLeft == 0) {
+            clearInterval(IntervalTimer);
+        }
+    }
+
+    let IntervalTimer = setInterval(timeElapsed, 1000);
+
+    // 3 questions: how to fit this into separate js file/ how to use requestanimation/ how to make pacman not turn right when d == 5
+  </script>
+ </head>
+ <body onload="draw()">
+   <h3 id="timer"></h3>
+   <h3 id="score"></h3>
+   <img src="./public/pacman.png" height="10" width="10" alt="Failed" id="pacman" style="display: none"/>
+   <img src="./public/ghost.png" height="10" width="10" alt="Failed" id="ghost" style="display: none"/>
+   <canvas id="canvas" width="600" height="600" style="display: none"></canvas>
+   <canvas id="canvas2" width="620" height="600"></canvas>
+ </body>
+</html>
