@@ -24,9 +24,13 @@
 
     function generatepatrol(arraylength) {
         numOfPatrols = Math.round(arraylength**2/40);
+        let patrolX;
+        let patrolY;
         for (i = 0; i < numOfPatrols; i++) {
             patrolX = Math.floor(Math.random()*arraylength);
-            patrolY = Math.floor(Math.random()*arraylength);
+            if (patrolX < 4) {
+                patrolY = Math.floor(Math.random()*(arraylength - 4) + 4);
+            } else {patrolY = Math.floor(Math.random()*arraylength);}
             patrol[i] = {x: patrolX * 30 + 10, y: patrolY * 30 + 10, pathTaken: [], chasestatus: false, canStartChase: true, playerMovementInChase: []};
         }
     } // first 4 X 4 grid should be clear
@@ -180,7 +184,7 @@
             destinctx.drawImage(img4, patrol[i].x, patrol[i].y, 10, 10);
         }
 
-        // checkAvailDirPatrol(patrol, player);
+        checkAvailDirPatrol(patrol, player);
         // patrol[5].x += 1;
 
         let list = checkMovementLimit(player);
@@ -219,6 +223,8 @@
 
     let Interval = setInterval(finalDraw, 10);
 
+    //user control
+
     function direction(event) {
         if (event.keyCode == 39) {
             d = 0;
@@ -230,289 +236,7 @@
             d = 3;
         }
     }
-
-    function checkCentre(x, y) {
-        if ((x - 15) % 30 == 0 && (y - 15) % 30 == 0) {
-            return true
-        } else {return false}
-    }
-
-    function withinSight(patroli, player) {
-        let distanceSquare = (patroli.x - player.x)**2 + (patroli.y - player.y)**2;
-        let gridDiff = [];
-        if (distanceSquare <= 900) {
-                let x = Math.floor(player.x/30); 
-                let y = Math.floor(player.y/30);
-                let x2 = Math.floor(patroli.x/30);
-                let y2 = Math.floor(patroli.y/30);
-            if (x == x2) {
-                switch (y < y2) { //player above patrol
-                    case true:
-                    let dy = y2 - y;
-                    for (i = 0; i < dy; i++) {
-                        if (grid[x][y + i].linkCell.indexOf(3) != -1) {
-                            gridDiff.push({x: x, y: y + 1 + i})
-                            if (i == dy - 1) {
-                                gridDiff.push(2);
-                                return gridDiff;
-                            }
-                        } else {break}
-                    } return false
-                    break;
-                    case false: //patrol above player
-                    for (i = 0; i < -dy; i++) { 
-                        if (grid[x][y2 + i].linkCell.indexOf(3) != -1) {
-                            gridDiff.push({x: x, y: y2 + 1 + i})
-                            if (i == -dx - 1) {
-                                gridDiff.push(3);
-                                return gridDiff;
-                            }
-                        } else {break}
-                    } return false
-                    break;
-                }
-            } else if (y == y2) {
-                switch (x < x2) { //player left of patrol
-                    case true:
-                    let dx = x2 - x;
-                    for (i = 0; i < dx; i++) {
-                        if (grid[x + i][y].linkCell.indexOf(0) != -1) {
-                            gridDiff.push({x: x + 1 + i, y: y})
-                            if (i == dx - 1) {
-                                gridDiff.push(1);
-                                return gridDiff;
-                            }
-                        } else {break}
-                    } return false
-                    break;
-                    case false: //patrol left of player
-                    for (i = 0; i < -dx; i++) { 
-                        if (grid[x2 + i][y].linkCell.indexOf(0) != -1) {
-                            gridDiff.push({x: x2 + 1 + i, y: y})
-                            if (i == -dx - 1) {
-                                gridDiff.push(0);
-                                return gridDiff;
-                            }
-                        } else {break}
-                    } return false
-                    break;
-                }
-            } else {return false}
-        } else {return false}
-    }
-
-    function preventBackwardMovement(patroli) {
-        if (patroli.pathTaken.length > 0) {
-            switch(patroli.pathTaken[patroli.pathTaken.length - 1]) {
-                case 0:
-                return 1
-                break;
-                case 1:
-                return 0
-                break;
-                case 2:
-                return 3;
-                break;
-                case 3:
-                return 2;
-                break;
-            }
-        } else {
-            return undefined;
-        }
-    }
-
-    function capturedByPatrol(patrolArr, user) {
-        let x;
-        let y;
-        let xp = Math.floor(user.x/30); 
-        let yp = Math.floor(user.y/30);
-        for (i = 0; i < patrolArr.length; i++) {
-            x = Math.floor(patrolArr[i].x/30);
-            y = Math.floor(patrolArr[i].y/30);
-            if (x == xp && y == yp) {
-                return true; //captured by patrol
-            }
-        }
-    }
-
-    function setDelay(patrolArr, i, MovementInterval) {
-        setTimeout(() => {
-            patrolArr[i].chasestatus = false;
-            clearInterval(MovementInterval);
-            patrolArr[i].playerMovementInChase = [];
-        }, 10000); //patrol will chase player for 10s upon discovery
-    }
-
-    function setDelay2(patrolArr, i) {
-        setTimeout(() => {patrolArr[i].canStartChase = true}, 15000); //5s cooldown before patrol can start another chase
-    }
-
-    function setDelay3(patrolArr, i) {
-        let MovementInterval = setInterval(() => {
-            if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) {
-                if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y != Math.floor(player.y/30))) {
-                    patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); 
-                } else if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x == Math.floor(player.x/30) && patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y == Math.floor(player.y/30))) {
-                    patrolArr[i].playerMovementInChase.pop(); // if the player move backwards redundant movement remove last element from playermovementarray
-                }
-            } else if (patrolArr[i].playerMovementInChase.length < 2 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) { //1 grid in array only
-                patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); // first two grid locations always recorded in array
-            }
-        }, 10);
-        return MovementInterval;
-    }
-
-    function checkAvailDirPatrol(patrolArr, user) {
-        let cellConnected;
-        let x;
-        let y;
-        let xp;
-        let yp;
-        let isCentre;
-        let chosenDir;
-        let backDir;
-        let inRange;
-        let startDir;
-        let MovementInterval;
-        xp = Math.floor(user.x/30); 
-        yp = Math.floor(user.y/30);
-        
-        for (i = 0; i < patrolArr.length; i++) {
-            x = Math.floor(patrolArr[i].x/30);
-            y = Math.floor(patrolArr[i].y/30);
-            cellConnected = grid[x][y].linkCell;
-            isCentre = checkCentre(patrolArr[i].x, patrolArr[i].y);
-            inRange = withinSight(patrolArr[i], user);
-            
-            if (inRange != false && patrolArr[i].chasestatus == false && patrol[i].canStartChase == true) {
-                patrolArr[i].chasestatus = true;
-                patrolArr[i].canStartChase = false;
-                for (j = 0; j < inRange.length - 2; j++) {
-                    patrolArr[i].playerMovementInChase.push(inRange[j]);
-                }
-                MovementInterval = setDelay3(patrolArr, i);
-                setDelay(patrolArr, i, MovementInterval);
-                setDelay2(patrolArr, i);
-                startDir = inRange[inRange.length - 1];
-                patrolArr[i].pathTaken.push(startDir);
-                patrolArr[i].pathTaken.splice(0, 1);
-                switch(startDir) {
-                    case 0:
-                    patrolArr[i].x += 2;
-                    break;
-                    case 1:
-                    patrolArr[i].x -= 2;
-                    break;
-                    case 2:
-                    patrolArr[i].y -= 2;
-                    break;
-                    case 3:
-                    patrolArr[i].y += 2;
-                    break;
-                }
-                
-            } else if (patrolArr[i].chasestatus == true) {
-                if (isCentre) {
-                    let nextGridTo = patrolArr[i].playerMovementInChase[0]; //decide next grid to move to
-                    if (nextGridTo.x - x == 1) {
-                        chosenDir = 0;
-                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
-                        patrolArr[i].pathTaken.push(0);
-                        patrolArr[i].pathTaken.splice(0, 1);
-                    } else if (x - nextGridTo.x == 1) {
-                        chosenDir = 1;
-                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
-                        patrolArr[i].pathTaken.push(1);
-                        patrolArr[i].pathTaken.splice(0, 1);
-                    } else if (nextGridTo.y - y == -1) {
-                        chosenDir = 2;
-                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
-                        patrolArr[i].pathTaken.push(2);
-                        patrolArr[i].pathTaken.splice(0, 1);
-                    } else if (nextGridTo.y - y == 1) {
-                        chosenDir = 3;
-                        patrolArr[i].playerMovementInChase[0].splice(0, 1);
-                        patrolArr[i].pathTaken.push(3);
-                        patrolArr[i].pathTaken.splice(0, 1);
-                    }
-                    switch(chosenDir) {
-                        case 0:
-                        patrolArr[i].x += 2;
-                        break;
-                        case 1:
-                        patrolArr[i].x -= 2;
-                        break;
-                        case 2:
-                        patrolArr[i].y -= 2;
-                        break;
-                        case 3:
-                        patrolArr[i].y += 2;
-                        break;
-                    }
-                } else {
-                    switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
-                        case 0:
-                        patrolArr[i].x += 2;
-                        break;
-                        case 1:
-                        patrolArr[i].x -= 2;
-                        break;
-                        case 2:
-                        patrolArr[i].y -= 2;
-                        break;
-                        case 3:
-                        patrolArr[i].y += 2;
-                        break;
-                }
-                }
-                //continue chase
-            } else if (isCentre) { // reached centre of intended grid choose new grid to move to
-                backDir = preventBackwardMovement(patrolArr[i]);
-                if (x == 19 && y == 19) {
-                    cellConnected.splice(0,1); // grid[19][19] case
-                }
-                if (backDir != undefined) {
-                    cellConnected.splice(cellConnected.indexOf(backDir), 1);
-                }
-                chosenDir = cellConnected[Math.floor(Math.random()*cellConnected.length)];
-                patrolArr[i].pathTaken.push(chosenDir);
-                if (patrolArr[i].pathTaken.length > 1) {
-                    patrolArr[i].pathTaken.splice(0, 1);
-                }
-                switch(chosenDir) {
-                    case 0:
-                    patrolArr[i].x += 1;
-                    break;
-                    case 1:
-                    patrolArr[i].x -= 1;
-                    break;
-                    case 2:
-                    patrolArr[i].y -= 1;
-                    break;
-                    case 3:
-                    patrolArr[i].y += 1;
-                    break;
-                }
-            } else { // continue moving in the determined direction
-                switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
-                    case 0:
-                    patrolArr[i].x += 1;
-                    break;
-                    case 1:
-                    patrolArr[i].x -= 1;
-                    break;
-                    case 2:
-                    patrolArr[i].y -= 1;
-                    break;
-                    case 3:
-                    patrolArr[i].y += 1;
-                    break;
-                }
-            }
-        } 
-    }
-
+    
     function checkMovementLimit(player) {
         let limit = [];
         let x = Math.floor(player.x/30);
@@ -544,6 +268,8 @@
         return limit
     }
 
+    // Timer for game
+
     function timeElapsed() {
         timeLeft = Math.ceil((120000 - (Date.now() - gameStartTime))/1000);
         document.getElementById("timer").innerText = "Time left:" + timeLeft;
@@ -553,6 +279,288 @@
     }
 
     let IntervalTimer = setInterval(timeElapsed, 1000);
+
+    //Automate the movement of patrols
+
+    function checkCentre(x, y) {
+        if ((x - 10) % 30 == 0 && (y - 10) % 30 == 0) {
+            return true
+        } else {return false}
+    } // functional
+
+    function withinSight(patroli, player) {
+        let distanceSquare = (patroli.x - player.x)**2 + (patroli.y - player.y)**2;
+        let gridDiff = [];
+        if (distanceSquare <= 8100) {
+                let x = Math.floor(player.x/30); 
+                let y = Math.floor(player.y/30);
+                let x2 = Math.floor(patroli.x/30);
+                let y2 = Math.floor(patroli.y/30);
+            if (x == x2) {
+                let dy = y2 - y;
+                if (y < y2) { //player above patrol
+                    for (i = 0; i < dy; i++) {
+                        if (grid[x][y + i].linkCell.indexOf(3) != -1) {
+                            gridDiff.push({x: x, y: y + 1 + i})
+                            if (i == dy - 1) {
+                                gridDiff.push(2);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                } else if (y > y2) {
+                    for (i = 0; i < -dy; i++) { 
+                        if (grid[x][y2 + i].linkCell.indexOf(3) != -1) {
+                            gridDiff.push({x: x, y: y2 + 1 + i})
+                            if (i == -dy - 1) {
+                                gridDiff.push(3);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                } //patrol above player
+            } else if (y == y2) {
+                let dx = x2 - x;
+                if (x < x2) { //player left of patrol
+                    for (i = 0; i < dx; i++) {
+                        if (grid[x + i][y].linkCell.indexOf(0) != -1) {
+                            gridDiff.push({x: x + 1 + i, y: y})
+                            if (i == dx - 1) {
+                                gridDiff.push(1);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                } else if (x > x2) {//patrol left of player
+                    for (i = 0; i < -dx; i++) { 
+                        if (grid[x2 + i][y].linkCell.indexOf(0) != -1) {
+                            gridDiff.push({x: x2 + 1 + i, y: y})
+                            if (i == -dx - 1) {
+                                gridDiff.push(0);
+                                return gridDiff;
+                            }
+                        } else {break}
+                    } return false
+                }
+            } else {return false}
+        } else {return false}
+    }
+
+    function preventBackwardMovement(patroli) {
+        if (patroli.pathTaken.length > 0) {
+            switch(patroli.pathTaken[patroli.pathTaken.length - 1]) {
+                case 0:
+                return 1
+                break;
+                case 1:
+                return 0
+                break;
+                case 2:
+                return 3;
+                break;
+                case 3:
+                return 2;
+                break;
+            }
+        } else {
+            return undefined;
+        }
+    } //functional
+
+    function capturedByPatrol(patrolArr, user) {
+        let x;
+        let y;
+        let xp = Math.floor(user.x/30); 
+        let yp = Math.floor(user.y/30);
+        for (i = 0; i < patrolArr.length; i++) {
+            x = Math.floor(patrolArr[i].x/30);
+            y = Math.floor(patrolArr[i].y/30);
+            if (x == xp && y == yp) {
+                return true; //captured by patrol
+            }
+        }
+    } //functional
+
+    function setDelay(patrolArr, i, MovementInterval) {
+        setTimeout(() => {
+            patrolArr[i].chasestatus = false;
+            clearInterval(MovementInterval);
+            patrolArr[i].playerMovementInChase = [];
+        }, 10000); //patrol will chase player for 10s upon discovery
+    }
+
+    function setDelay2(patrolArr, i) {
+        setTimeout(() => {patrolArr[i].canStartChase = true}, 15000); //5s cooldown before patrol can start another chase
+    }
+
+    function setDelay3(patrolArr, i) {
+        let MovementInterval = setInterval(() => {
+            if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) {
+                if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y != Math.floor(player.y/30))) {
+                    patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); 
+                } else if (patrolArr[i].playerMovementInChase.length > 1 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].x == Math.floor(player.x/30) && patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 2].y == Math.floor(player.y/30))) {
+                    patrolArr[i].playerMovementInChase.pop(); // if the player move backwards redundant movement remove last element from playermovementarray
+                }
+            } else if (patrolArr[i].playerMovementInChase.length < 2 && (patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrolArr[i].playerMovementInChase[patrolArr[i].playerMovementInChase.length - 1].y != Math.floor(player.y/30))) { //1 grid in array only
+                patrolArr[i].playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); // first two grid locations always recorded in array
+            }
+        }, 10);
+        return MovementInterval;
+    }
+
+    function checkAvailDirPatrol(patrolArr, user) {
+        let x;
+        let y;
+        let xp;
+        let yp;
+        let isCentre;
+        let chosenDir;
+        let backDir;
+        let inRange;
+        let startDir;
+        let MovementInterval;
+        xp = Math.floor(user.x/30); 
+        yp = Math.floor(user.y/30);
+        
+        for (i = 0; i < patrolArr.length; i++) {
+            x = Math.floor(patrolArr[i].x/30);
+            y = Math.floor(patrolArr[i].y/30);
+            let cellConnected = [];
+            isCentre = checkCentre(patrolArr[i].x, patrolArr[i].y);
+            inRange = withinSight(patrolArr[i], user);
+
+            for (c = 0; c < grid[x][y].linkCell.length; c++) {
+                cellConnected.push(grid[x][y].linkCell[c]);
+            }
+            
+            // if (inRange != false && patrolArr[i].chasestatus == false && patrol[i].canStartChase == true) {
+            //     patrolArr[i].chasestatus = true;
+            //     patrolArr[i].canStartChase = false;
+            //     for (j = 0; j < inRange.length - 2; j++) {
+            //         patrolArr[i].playerMovementInChase.push(inRange[j]);
+            //     }
+            //     MovementInterval = setDelay3(patrolArr, i);
+            //     setDelay(patrolArr, i, MovementInterval);
+            //     setDelay2(patrolArr, i);
+            //     startDir = inRange[inRange.length - 1];
+            //     patrolArr[i].pathTaken.push(startDir);
+            //     patrolArr[i].pathTaken.splice(0, 1);
+            //     switch(startDir) {
+            //         case 0:
+            //         patrolArr[i].x += 2;
+            //         break;
+            //         case 1:
+            //         patrolArr[i].x -= 2;
+            //         break;
+            //         case 2:
+            //         patrolArr[i].y -= 2;
+            //         break;
+            //         case 3:
+            //         patrolArr[i].y += 2;
+            //         break;
+            //     }
+                
+            // } else if (patrolArr[i].chasestatus == true) {
+            //     if (isCentre) {
+            //         let nextGridTo = patrolArr[i].playerMovementInChase[0]; //decide next grid to move to
+            //         if (nextGridTo.x - x == 1) {
+            //             chosenDir = 0;
+            //             patrolArr[i].playerMovementInChase[0].splice(0, 1);
+            //             patrolArr[i].pathTaken.push(0);
+            //             patrolArr[i].pathTaken.splice(0, 1);
+            //         } else if (x - nextGridTo.x == 1) {
+            //             chosenDir = 1;
+            //             patrolArr[i].playerMovementInChase[0].splice(0, 1);
+            //             patrolArr[i].pathTaken.push(1);
+            //             patrolArr[i].pathTaken.splice(0, 1);
+            //         } else if (nextGridTo.y - y == -1) {
+            //             chosenDir = 2;
+            //             patrolArr[i].playerMovementInChase[0].splice(0, 1);
+            //             patrolArr[i].pathTaken.push(2);
+            //             patrolArr[i].pathTaken.splice(0, 1);
+            //         } else if (nextGridTo.y - y == 1) {
+            //             chosenDir = 3;
+            //             patrolArr[i].playerMovementInChase[0].splice(0, 1);
+            //             patrolArr[i].pathTaken.push(3);
+            //             patrolArr[i].pathTaken.splice(0, 1);
+            //         }
+            //         switch(chosenDir) {
+            //             case 0:
+            //             patrolArr[i].x += 2;
+            //             break;
+            //             case 1:
+            //             patrolArr[i].x -= 2;
+            //             break;
+            //             case 2:
+            //             patrolArr[i].y -= 2;
+            //             break;
+            //             case 3:
+            //             patrolArr[i].y += 2;
+            //             break;
+            //         }
+            //     } else {
+            //         switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
+            //             case 0:
+            //             patrolArr[i].x += 2;
+            //             break;
+            //             case 1:
+            //             patrolArr[i].x -= 2;
+            //             break;
+            //             case 2:
+            //             patrolArr[i].y -= 2;
+            //             break;
+            //             case 3:
+            //             patrolArr[i].y += 2;
+            //             break;
+            //     }
+            //     }
+                //continue chase
+            // } else 
+            if (isCentre) { // reached centre of intended grid choose new grid to move to
+                backDir = preventBackwardMovement(patrolArr[i]);
+                if (x == 19 && y == 19) {
+                    cellConnected.splice(0,1); // grid[19][19] case
+                }
+                if (backDir != undefined && cellConnected.length > 1) {
+                    cellConnected.splice(cellConnected.indexOf(backDir), 1);
+                }
+                chosenDir = cellConnected[Math.floor(Math.random()*cellConnected.length)];
+                patrolArr[i].pathTaken.push(chosenDir);
+                if (patrolArr[i].pathTaken.length > 1) {
+                    patrolArr[i].pathTaken.splice(0, 1);
+                }
+                switch(chosenDir) {
+                    case 0:
+                    patrolArr[i].x += 1;
+                    break;
+                    case 1:
+                    patrolArr[i].x -= 1;
+                    break;
+                    case 2:
+                    patrolArr[i].y -= 1;
+                    break;
+                    case 3:
+                    patrolArr[i].y += 1;
+                    break;
+                } //functional
+            } else { // continue moving in the determined direction
+                switch(patrolArr[i].pathTaken[patrolArr[i].pathTaken.length - 1]) {
+                    case 0:
+                    patrolArr[i].x += 1;
+                    break;
+                    case 1:
+                    patrolArr[i].x -= 1;
+                    break;
+                    case 2:
+                    patrolArr[i].y -= 1;
+                    break;
+                    case 3:
+                    patrolArr[i].y += 1;
+                    break;
+                }
+            } //functional
+        } 
+    }
 
     // 3 questions: how to fit this into separate js file/ how to use requestanimation/ how to make pacman not turn right when d == 5
   </script>
