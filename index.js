@@ -10,13 +10,26 @@ let d;
 let player = {
         x: 2,
         y: 10,
+        poisonedStatus: false
     };
 let hp = 5;
 let img2 = new Image();    
 let img3 = new Image();
+// variables for patrol
 let numOfPatrols;
 let patrol = [];
-let numOfGasTiles = 0;
+// variables for gas bombs
+let isBomb;
+let gasX;
+let gasY;
+let tilesGased = [];
+let Interval;
+// variables for laser gun
+let laserGuns = [];
+let numOfGuns;
+
+
+
 
 function generatepatrol(arraylength) {
     numOfPatrols = Math.round(arraylength**2/40);
@@ -36,6 +49,9 @@ document.addEventListener("keyup", function() {d = 5});
 const cvs = document.getElementById("canvas");
 const ctx = cvs.getContext("2d");
 const gasctx = document.getElementById("gas-canvas").getContext("2d");
+const gunctx = document.getElementById("gun-canvas").getContext("2d");
+gunctx.strokeStyle = "red";
+gunctx.lineWidth = 4;
 gasctx.fillStyle = "yellow";
 
 function draw() {
@@ -49,7 +65,7 @@ function draw() {
                 y: j,
                 visited: false,
                 linkCell: [],
-                // occupiedBy: []
+                gased: false
             };
             gridTracker[i][j] = 0;
         }
@@ -122,7 +138,8 @@ function draw() {
             numOfUnvisitedGrid -= 1;
         } 
     }
-    gasArea(4,4);
+    Interval = gasBombGenerator(grid.length);
+    genLaserGuns(grid.length);
 }
 
 function filterArr(arr) {
@@ -166,6 +183,7 @@ let myReq;
 var start = null;
 var lastTimerUpdate;
 var lastPatrolUpdate;
+var lastHpUpdate;
 var timeGiven = 120;
 
 const destinctx = document.getElementById("canvas2").getContext("2d");
@@ -173,6 +191,8 @@ const scoreBoard = document.getElementById("score");
 const img = document.getElementById("pacman");
 const img4 = document.getElementById("ghost");
 const timer = document.getElementById("timer");
+const health = document.getElementById("hp");
+
 ;(function () {
     function finalDraw(timeStamp) {
         myReq = window.requestAnimationFrame(finalDraw);
@@ -180,8 +200,11 @@ const timer = document.getElementById("timer");
             start = timeStamp;
             lastTimerUpdate = timeStamp;
             lastPatrolUpdate = timeStamp;
+            lastHpUpdate = timeStamp;
             timer.innerText = "Time left: " + timeGiven;
+            health.innerHTML = "HP: " + hp;
         }
+
         if (timeStamp - lastTimerUpdate >= 1000) {
             timeGiven -= 1;
             timer.innerText = "Time left: " + timeGiven;
@@ -206,13 +229,21 @@ const timer = document.getElementById("timer");
             checkAvailDirPatrol(patrol, x, y);
             lastPatrolUpdate = timeStamp;
         }
+
+        if (timeStamp - lastHpUpdate >= 1000) {
+            hitByLaser(player.x, player.y);
+            // poisonByGas(player.x, player.y);
+            health.innerHTML = "HP: " + hp;
+            lastHpUpdate = timeStamp;
+        }
         let list = checkMovementLimit(x, y);
 
-        if (timeGiven == 0 || hp == 0 || capturedByPatrol(patrol, x, y)) {
+        if (timeGiven == 0 || hp == 0 || capturedByPatrol(patrol, player.x, player.y)) {
             img3.onload = function () {
                 destinctx.drawImage(img3, 0, 0, 600, 600);
             }
             timer.innerHTML = "";
+            window.clearInterval(Interval);
             window.cancelAnimationFrame(myReq);
         } else if (player.x >= 600) {
             img2.onload = function () {
@@ -220,6 +251,7 @@ const timer = document.getElementById("timer");
             }
             scoreBoard.innerHTML = "Score:" + Math.round(timeGiven/120*100);              
             timer.innerHTML = "";
+            window.clearInterval(Interval);
             window.cancelAnimationFrame(myReq);
         } else if (d == 0 && player.x != list[0] - 10) {
             player.x += 2;
@@ -238,33 +270,7 @@ const timer = document.getElementById("timer");
     finalDraw();
 })();
 
-function gasArea(x, y) {
-    if (numOfGasTiles == 10) {
-        return; 
-    }
-    gasctx.fillRect(x * 30, y * 30, 30, 30);
-    let cellConnected = grid[x][y].linkCell;
-    numOfGasTiles += 1;
-    for (let i = 0; i < cellConnected.length; i++) {
-        switch (cellConnected[i]) {
-            case 0:
-                gasArea(x + 1, y);
-                break;
-            case 1:
-                gasArea(x - 1, y);
-                break;
-            case 2:
-                gasArea(x, y - 1);
-                break;
-            case 3:
-                gasArea(x, y + 1);
-                break;
-        }
-    }
-} //15 tiles will get filled with gas
-
 //user control
-
 function direction(event) {
     if (event.keyCode == 39) {
         d = 0;
@@ -282,7 +288,11 @@ function checkMovementLimit(x, y) {
     let cellConnected;
 
     if (x < 20) {
-        cellConnected = grid[x][y].linkCell;
+        try {
+            cellConnected = grid[x][y].linkCell;
+        } catch (err) {
+            return;
+        }
     };
     for (let i = 0; i < 4; i++) {
         if (x == 20) {
@@ -310,14 +320,16 @@ function checkMovementLimit(x, y) {
 function capturedByPatrol(patrolArr, xp, yp) {
     let x;
     let y;
+    xp = Math.floor((player.x + 5)/30);
+    yp = Math.floor((player.y + 5)/30);
     for (let i = 0; i < patrolArr.length; i++) {
-        x = Math.floor(patrolArr[i].x/30);
-        y = Math.floor(patrolArr[i].y/30);
+        x = Math.floor((patrolArr[i].x + 5)/30);
+        y = Math.floor((patrolArr[i].y + 5)/30);
         if (x == xp && y == yp) {
             return true; //captured by patrol
         }
     }
-} //functional
+}
 
 function checkCentre(x, y) {
     if ((x - 10) % 30 == 0 && (y - 10) % 30 == 0) {
@@ -398,7 +410,7 @@ function preventBackwardMovement(patroli) {
     } else {
         return undefined;
     }
-} //functional
+}
 
 function setDelay(patrol, MovementInterval) { //use window.performance.now instead to track time
     window.setTimeout(() => {
@@ -423,7 +435,6 @@ function setDelay3(patrol) {
         } else if (patrol.playerMovementInChase.length == 1 && (patrol.playerMovementInChase[patrol.playerMovementInChase.length - 1].x != Math.floor(player.x/30) || patrol.playerMovementInChase[patrol.playerMovementInChase.length - 1].y != Math.floor(player.y/30))) { //1 grid in array only
             patrol.playerMovementInChase.push({x: Math.floor(player.x/30), y: Math.floor(player.y/30)}); // first two grid locations always recorded in array
         }
-        console.log(patrol.playerMovementInChase)
     }, 250);
     return MovementInterval;
 }
@@ -452,7 +463,6 @@ function checkAvailDirPatrol(patrolArr, xp, yp) {
             for (let j = 0; j < inRange.length - 2; j++) {
                 patrolArr[i].playerMovementInChase.push(inRange[j]);
             }
-            console.log(patrolArr[i].playerMovementInChase)
             MovementInterval = setDelay3(patrolArr[i]);
             setDelay(patrolArr[i], MovementInterval);
             setDelay2(patrolArr[i]);
@@ -481,7 +491,6 @@ function checkAvailDirPatrol(patrolArr, xp, yp) {
         } else if (patrolArr[i].chasestatus == true) {
             if (isCentre && patrolArr[i].playerMovementInChase.length > 1) {
                 let nextGridTo = patrolArr[i].playerMovementInChase[1]; //decide next grid to move to
-                console.log(nextGridTo);
                 patrolArr[i].playerMovementInChase.splice(0, 1);
                 if (nextGridTo.x - x == 1) {
                     chosenDir = 0;
@@ -595,4 +604,246 @@ function checkAvailDirPatrol(patrolArr, xp, yp) {
             }
         } //functional
     } 
+}
+
+// gas bombs
+function gasBombGenerator(arraylength) {
+    let Interval = setInterval(() => {
+        Math.floor(Math.random() * 4000/arraylength**2) == 0 ? isBomb = true : isBomb = false;
+        if (isBomb) {
+            gasX = Math.floor(Math.random() * arraylength);
+            gasY = Math.floor(Math.random() * arraylength);
+            tilesGased[tilesGased.length] = []; // each ongoing gas bomb gets an array to compute affected area
+            tilesGased[tilesGased.length - 1].push(2, 0, [{x: gasX, y: gasY, backDir: 5}]) // [0] represents distance of current tile from starting tile
+            genGasArea(tilesGased[tilesGased.length - 1]); 
+        }
+    }, 1000);
+    return Interval;
+}
+
+function genGasArea(gasedTilesArr) { //per gas bomb
+    gasedTilesArr[gasedTilesArr.length] = [];
+    for (let i = 0; i < gasedTilesArr[gasedTilesArr[0]].length; i++) {
+        grid[gasedTilesArr[gasedTilesArr[0]][i].x][gasedTilesArr[gasedTilesArr[0]][i].y].gased = true;
+        gasctx.fillRect(gasedTilesArr[gasedTilesArr[0]][i].x * 30, gasedTilesArr[gasedTilesArr[0]][i].y * 30, 30, 30);
+        gasedTilesArr[1] += 1;
+        if (gasedTilesArr[1] == 10) {
+            setTimeout(() => {
+                for (let i = 2; i < gasedTilesArr.length; i++) {
+                    for (let k = 0; k < gasedTilesArr[i].length; k++) {
+                        grid[gasedTilesArr[i][k].x][gasedTilesArr[i][k].y].gased = false;
+                        gasctx.clearRect(gasedTilesArr[i][k].x * 30, gasedTilesArr[i][k].y * 30, 30, 30);
+                    }
+                }
+            }, 10000)
+            return;
+        }
+        let cellConnected = [];
+        for (let c = 0; c < grid[gasedTilesArr[gasedTilesArr[0]][i].x][gasedTilesArr[gasedTilesArr[0]][i].y].linkCell.length; c++) {
+            cellConnected.push(grid[gasedTilesArr[gasedTilesArr[0]][i].x][gasedTilesArr[gasedTilesArr[0]][i].y].linkCell[c]);
+        } 
+        if (gasedTilesArr[0] != 2) {
+            cellConnected.splice(cellConnected.indexOf(gasedTilesArr[gasedTilesArr[0]][i].backDir), 1);
+        }
+        if (gasedTilesArr[gasedTilesArr[0]][i].x == 19 && gasedTilesArr[gasedTilesArr[0]][i].y == 19) {
+            cellConnected.splice(0, 1);
+        }
+        for (let j = 0; j < cellConnected.length; j++) {
+            switch(cellConnected[j]) {
+                case 0:
+                    gasedTilesArr[gasedTilesArr.length - 1].push({x: gasedTilesArr[gasedTilesArr[0]][i].x + 1, y: gasedTilesArr[gasedTilesArr[0]][i].y, backDir: 1})
+                    break;
+                case 1:
+                    gasedTilesArr[gasedTilesArr.length - 1].push({x: gasedTilesArr[gasedTilesArr[0]][i].x - 1, y: gasedTilesArr[gasedTilesArr[0]][i].y, backDir: 0})
+                    break;
+                case 2:
+                    gasedTilesArr[gasedTilesArr.length - 1].push({x: gasedTilesArr[gasedTilesArr[0]][i].x, y: gasedTilesArr[gasedTilesArr[0]][i].y - 1, backDir: 3})
+                    break;
+                case 3:
+                    gasedTilesArr[gasedTilesArr.length - 1].push({x: gasedTilesArr[gasedTilesArr[0]][i].x, y: gasedTilesArr[gasedTilesArr[0]][i].y + 1, backDir: 2})
+                    break;
+            }
+        }
+    } 
+    gasedTilesArr[0] += 1; 
+    setTimeout(() => {
+        genGasArea(gasedTilesArr);
+    }, 250)
+} // maybe add in animation for gas spread from light color to dark color
+
+// laser guns
+function beamRange(x, y, d) {
+    let pathLength = 30;
+    let X = x;
+    let Y = y;
+    while (grid[X][Y].linkCell.includes(d)) {
+        pathLength += 30;
+        switch(d) {
+            case 0:
+                X += 1;
+                break;
+            case 1:
+                X -= 1;
+                break;
+            case 2:
+                Y -= 1;
+                break;
+            case 3:
+                Y += 1;
+                break;
+        }
+    } return pathLength;
+}
+
+function genLaserGuns (arraylength) {
+    numOfGuns = arraylength ** 2/50;
+    let gunX;
+    let gunY;
+    let dir;
+    let beamLength;
+    let startPoint;
+    let endPoint;
+    let initialLapse;
+    let cellConnected = [];
+    for (let i = 0; i < numOfGuns; i++) {
+        beamLength = 30;
+        while (beamLength < 90) {
+            gunX = Math.floor(Math.random()*arraylength);
+            gunY = Math.floor(Math.random()*arraylength);
+            cellConnected = grid[gunX][gunY].linkCell;
+            let shuffle = Math.floor(Math.random() * 4);
+            for (let j = shuffle; j < shuffle + 4; j++) {
+                if (cellConnected.includes(j % 4) == false) {
+                    switch(j % 4) {
+                        case 0:
+                            dir = 1;
+                            break;
+                        case 1:
+                            dir = 0;
+                            break;
+                        case 2:
+                            dir = 3;
+                            break;
+                        case 3: 
+                            dir = 2;
+                            break;
+                    }
+                }
+            }
+            beamLength = beamRange(gunX, gunY, dir);
+        }
+        switch(dir) {
+            case 0:
+                startPoint = {x: gunX * 30, y: gunY * 30 + 15};
+                endPoint = {x: gunX * 30 + beamLength, y: gunY * 30 + 15};
+                break;
+            case 1:
+                startPoint = {x: gunX * 30 + 30, y: gunY * 30 + 15};
+                endPoint = {x: gunX * 30 + 30 - beamLength, y: gunY * 30 + 15};
+                break;
+            case 2:
+                startPoint = {x: gunX * 30 + 15, y: gunY * 30 + 30};
+                endPoint = {x: gunX * 30 + 15, y: gunY * 30 + 30 - beamLength};
+                break;
+            case 3:
+                startPoint = {x: gunX * 30 + 15, y: gunY * 30};
+                endPoint = {x: gunX * 30 + 15, y: gunY * 30 + beamLength};
+                break;
+        }
+        initialLapse = Math.floor(Math.random() * 5);
+        laserGuns.push({startTime: initialLapse * 1000, x: gunX, y: gunY, d: dir, moveTo: startPoint, lineTo: endPoint, beamLength: beamLength, beamStatus: false});
+    }
+
+    for (let c = 0; c < numOfGuns; c++) {
+        setTimeout(() => {
+            drawBeam(laserGuns[c]);
+        }, laserGuns[c].startTime)
+    }
+}
+
+function drawBeam(LaserGun) {
+    let start = LaserGun.moveTo;
+    let end = LaserGun.lineTo;
+    let dir = LaserGun.d;
+    let beamLength = LaserGun.beamLength;
+    
+    gunctx.beginPath();
+    gunctx.moveTo(start.x, start.y);
+    gunctx.lineTo(end.x, end.y);
+    gunctx.stroke();
+    LaserGun.beamStatus = true;
+    setTimeout(() => {
+        switch(dir) {
+            case 0:
+                gunctx.clearRect(start.x, start.y - 2, beamLength, 4);
+                break;
+            case 1:
+                gunctx.clearRect(end.x, end.y - 2, beamLength, 4);
+                break;
+            case 2:
+                gunctx.clearRect(end.x - 2, end.y, 4, beamLength);
+                break;
+            case 3:
+                gunctx.clearRect(start.x - 2, start.y, 4, beamLength)
+                break;
+        }
+        LaserGun.beamStatus = false;
+    }, 5000);
+    setTimeout(() => {drawBeam(LaserGun)}, 8000);
+}
+
+// effect on player hp from gas and laser
+function hitByLaser(x, y) {
+    x += 5;
+    y += 5;
+    for (let i = 0; i < numOfGuns; i++) {
+        if (laserGuns[i].beamStatus == false) {
+        } else {
+            switch(laserGuns[i].d) {
+                case 0:
+                    if (x <= laserGuns[i].lineTo.x + 5 && x >= laserGuns[i].moveTo.x - 5) {
+                        if (Math.abs(y - laserGuns[i].moveTo.y) <= 7) {
+                            hp -= 1;
+                        }
+                    }
+                    break;
+                case 1:
+                    if (x >= laserGuns[i].lineTo.x - 5 && x <= laserGuns[i].moveTo.x + 5) {
+                        if (Math.abs(y - laserGuns[i].moveTo.y) <= 7) {
+                            hp -= 1;
+                        }
+                    }
+                    break;
+                case 2:
+                    if (y >= laserGuns[i].lineTo.y - 5 && y <= laserGuns[i].moveTo.y + 5) {
+                        if (Math.abs(x - laserGuns[i].moveTo.x) <= 7) {
+                            hp -= 1;
+                        }
+                    }
+                    break;
+                case 3:
+                    if (y <= laserGuns[i].lineTo.y + 5 && x >= laserGuns[i].moveTo.y - 5) {
+                        if (Math.abs(x - laserGuns[i].moveTo.x) <= 7) {
+                            hp -= 1;
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+function poisonByGas(x, y) {
+    let xp = Math.floor((x + 5)/30);
+    let yp = Math.floor((y + 5)/30);
+    if (grid[xp][yp].gased) {
+        player.poisonedStatus = true;
+    } else {
+        if (player.poisonedStatus) {
+            setTimeout(() => {player.poisonedStatus = false}, 1000)
+        }
+    }
+    if (player.poisonedStatus == true) {
+        hp -= 0.5;
+    }
 }
