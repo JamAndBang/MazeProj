@@ -232,7 +232,7 @@ const health = document.getElementById("hp");
 
         if (timeStamp - lastHpUpdate >= 1000) {
             hitByLaser(player.x, player.y);
-            // poisonByGas(player.x, player.y);
+            poisonByGas(player.x, player.y);
             health.innerHTML = "HP: " + hp;
             lastHpUpdate = timeStamp;
         }
